@@ -1,27 +1,28 @@
-import eventlet
+# import eventlet
 import json
 import bcrypt
+import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from functools import wraps
 from flask_mqtt import Mqtt
-from flask_socketio import SocketIO
 from flask_pymongo import PyMongo
 
 from middleware.auth import auth, guest
 
-eventlet.monkey_patch()
+# eventlet.monkey_patch()
 
 app = Flask(__name__)
 app.config['SECRET'] = 'my secret key'
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
-app.config['MQTT_BROKER_URL'] = 'broker.hivemq.com'
+app.config['MQTT_BROKER_URL'] = 'raspberrypi'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_USERNAME'] = ''
 app.config['MQTT_PASSWORD'] = ''
 app.config['MQTT_KEEPALIVE'] = 5
 app.config['MQTT_TLS_ENABLED'] = False
+app.config['MQTT_CLEAN_SESSION'] = True
 
 app.config["MONGO_URI"] = "mongodb://localhost:27017/technocrats"
 
@@ -31,9 +32,42 @@ app.config["MONGO_URI"] = "mongodb://localhost:27017/technocrats"
 # app.config['MQTT_TLS_INSECURE'] = True
 # app.config['MQTT_TLS_CA_CERTS'] = 'ca.crt'
 
+
 mqtt = Mqtt(app)
-socketio = SocketIO(app)
+# socketio = SocketIO(app)
 mongo = PyMongo(app)
+
+@mqtt.on_connect()
+def handle_connect(client, userdata, flags, rc):
+    print("Connected to mqtt")
+    mqtt.subscribe("technocrat/temp")
+    mqtt.subscribe("technocrat/humid")
+
+@mqtt.on_message()
+def handle_mqtt_message(client, userdata, message):
+    # print("Receiving data")
+    _, topic = message.topic.split("/")
+    data = dict(
+        date=datetime.datetime.utcnow(),
+        value=message.payload.decode()
+    )
+    update_records(topic, data)
+
+
+@mqtt.on_log()
+def handle_logging(client, userdata, level, buf):
+   # print(level, buf)
+   pass
+
+
+def update_records(topic, data):
+    if topic == 'temp':
+        mongo.db.temps.insert_one(data)
+    elif topic == 'humid':
+        mongo.db.humids.insert_one(data)
+    else:
+        print("No valid topic")
+
 
 
 @app.route('/')
@@ -58,7 +92,7 @@ def login():
         flash("Invalid username or password", "danger")
         return redirect(url_for("login", old={'username': username}))
 
-    return render_template('pages/auth/login.html')
+    return render_template('pages/auth/login.html', message="Hello, Programmers")
 
 
 @app.route('/logout', methods=['POST'])
@@ -98,4 +132,4 @@ def register():
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, use_reloader=True, debug=True)
+    app.run(host='0.0.0.0', port=5000, use_reloader=True, debug=True)

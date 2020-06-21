@@ -10,7 +10,7 @@
                 <h3 class="tile-title">Humidity</h3>
                 <hr>
                 <div class="embed-responsive embed-responsive-16by9">
-                    <canvas class="embed-responsive-item" id="pieChartDemo"></canvas>
+                    <canvas class="embed-responsive-item" id="humidityChart"></canvas>
                 </div>
             </div>
         </div>
@@ -19,7 +19,7 @@
                 <h3 class="tile-title">Temperature</h3>
                 <hr>
                 <div class="embed-responsive embed-responsive-16by9">
-                    <canvas class="embed-responsive-item" id="myChart"></canvas>
+                    <canvas class="embed-responsive-item" id="temperatureChart"></canvas>
                 </div>
             </div>
         </div>
@@ -31,15 +31,23 @@
     <script type="text/javascript" src="{{ url_for('static', filename='js/plugins/chart.js') }}"></script>
     <script type="text/javascript"
             src="{{ url_for('static', filename='js/plugins/chartjs-plugin-streaming.js') }}"></script>
-    <script type="text/javascript">
-        var ctx = document.getElementById('myChart').getContext('2d');
+    <script type="text/javascript" src="{{ url_for('static', filename='js/plugins/socket.io.js') }}"></script>
 
-        var chart = new Chart(ctx, {
+    <script type="text/javascript" charset="utf-8">
+        
+    </script>
+    <script type="text/javascript">
+        let ctx = document.getElementById('temperatureChart').getContext('2d');
+
+        let tempChart = new Chart(ctx, {
             type: 'line',
             data: {
                 datasets: [{
-                    data: []
-                }, {
+                    label: 'Temperature(°C)',
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    lineTension: 0,
+                    borderDash: [8, 4],
                     data: []
                 }]
             },
@@ -48,75 +56,80 @@
                     xAxes: [{
                         type: 'realtime',
                         realtime: {
-                            delay: 2000,
-                            onRefresh: function (chart) {
+                            delay: 4000,
+                            refresh: 2000,
+                            /*onRefresh: function (chart) {
                                 chart.data.datasets.forEach(function (dataset) {
                                     dataset.data.push({
                                         x: Date.now(),
                                         y: Math.random()
                                     });
                                 });
-                            }
+                            }*/
                         }
                     }]
                 }
             }
         });
-    </script>
-    <script type="text/javascript">
-        let data = {
-            labels: ["January", "February", "March", "April", "May"],
-            datasets: [
-                {
-                    label: "My First dataset",
-                    fillColor: "rgba(220,220,220,0.2)",
-                    strokeColor: "rgba(220,220,220,1)",
-                    pointColor: "rgba(220,220,220,1)",
-                    pointStrokeColor: "#fff",
-                    pointHighlightFill: "#fff",
-                    pointHighlightStroke: "rgba(220,220,220,1)",
-                    data: [65, 59, 80, 81, 56]
-                },
-                {
-                    label: "My Second dataset",
-                    fillColor: "rgba(151,187,205,0.2)",
-                    strokeColor: "rgba(151,187,205,1)",
-                    pointColor: "rgba(151,187,205,1)",
-                    pointStrokeColor: "#fff",
-                    pointHighlightFill: "#fff",
-                    pointHighlightStroke: "rgba(151,187,205,1)",
-                    data: [28, 48, 40, 19, 86]
+        let ctx2 = document.getElementById('humidityChart').getContext('2d');
+        let humidChart = new Chart(ctx2, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Humidity (% H2O)',
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    lineTension: 0,
+                    borderDash: [8, 4],
+                    data: []
+                }]
+            },
+            options: {
+                scales: {
+                    xAxes: [{
+                        type: 'realtime',
+                        realtime: {
+                            delay: 4000,
+                            refresh: 2000,
+                            /*onRefresh: function (chart) {
+                                chart.data.datasets.forEach(function (dataset) {
+                                    dataset.data.push({
+                                        x: Date.now(),
+                                        y: Math.random()
+                                    });
+                                });
+                            }*/
+                        }
+                    }]
                 }
-            ]
-        };
-        let pdata = [
-            {
-                value: 300,
-                color: "#F7464A",
-                highlight: "#FF5A5E",
-                label: "Red"
-            },
-            {
-                value: 50,
-                color: "#46BFBD",
-                highlight: "#5AD3D1",
-                label: "Green"
-            },
-            {
-                value: 100,
-                color: "#FDB45C",
-                highlight: "#FFC870",
-                label: "Yellow"
             }
-        ]
-
-        let ctxp = document.getElementById("pieChartDemo").getContext("2d");
-        let pieChart = new Chart(ctxp, {
-            type: 'doughnut',
-            data: data
         });
-
-        {#let ctxd = $("#doughnutChartDemo").get(0).getContext("2d");#}
-        {#let doughnutChart = new Chart(ctxd).Doughnut(pdata);#}
+        
+        let socket = io('192.168.43.180:3000');
+        socket.on('connect', function() {
+            console.log("Connected to socket server...");
+            
+            socket.on('technocrat/temp', function (data) {
+                console.log('technocrat/temp: ', data)
+                tempChart.data.datasets[0].data.push({
+                    x: data.date,
+                    y: data.value
+                });
+                tempChart.update({
+                    preservation: true
+                });
+            });
+            socket.on('technocrat/humid', function(data) {
+                humidChart.data.datasets[0].data.push({
+                    x: data.date,
+                    y: data.value
+                });
+                humidChart.update({
+                    preservation: true
+                });
+            });
+        });
+        
+       
     </script>
 {% endblock %}
