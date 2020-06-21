@@ -1,5 +1,7 @@
 # Dashboard
 
+![Dashboard](static/gif/dashboard.gif)
+
 This repository contains the dashboard files.
 
 ## Dependencies
